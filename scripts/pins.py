@@ -1,0 +1,79 @@
+#!/usr/bin/env python3
+
+import atexit
+import sys
+import signal
+import time
+from enum import Enum
+from abc import ABC, abstractmethod
+
+def exit_wrapper(signum, frame):
+    print("Received " + str(signum) + " - cleaning up and exiting")
+    # Exit normally running cleanup functions
+    sys.exit()
+
+@atexit.register
+def cleanup_gpio():
+    print("cleaning")
+    GPIO.cleanup()
+
+try:
+    import RPi.GPIO as GPIO
+    print("Successfully imported RPi.GPIO")
+except RuntimeError:
+    print("Error importing RPi.GPIO!  This is probably because you need superuser privileges.  You can achieve this by using 'sudo' to run your script")
+    sys.exit(1)
+GPIO.setmode(GPIO.BOARD)
+signal.signal(signal.SIGINT, exit_wrapper)
+signal.signal(signal.SIGTERM, exit_wrapper)
+
+# Only thing I'm not so keen on is initally the state is None
+# which in comparisons can often seem like false/off... oh well
+
+def type_is_in(t, *types):
+    return any(map(lambda tt: t is tt, types))
+
+class Pin(ABC):
+    def __init__(self, number, active_state):
+        self._number = number
+        if active_state == GPIO.LOW:
+            self._On, self._Off = GPIO.LOW, GPIO.HIGH
+        elif active_state == GPIO.HIGH:
+            self._On, self._Off = GPIO.HIGH, GPIO.LOW
+    def __bool__(self):
+        return self.state()
+    @abstractmethod
+    def state(self):
+        pass
+    def __str__(self):
+        return "Pin: " + str(self._number) + ", state: " + str(self.state())
+
+class InputPin(Pin):
+    def __init__(self, number, active_state=GPIO.LOW):
+        super().__init__(number, active_state)
+        GPIO.setup(self._number, GPIO.IN)
+        time.sleep(0.1)
+    def state(self):
+        return self.map_from_pin_state(GPIO.input(self._number))
+    def map_from_pin_state(self, pin_state):
+        # Should never get not a GPIO state as input
+        assert(type_is_in(pin_state, GPIO.LOW, GPIO.HIGH))
+        return pin_state == self._On
+
+class OutputPin(Pin):
+    def __init__(self, number, active_state=GPIO.LOW, initial=False):
+        super().__init__(number, active_state)
+        GPIO.setup(self._number, GPIO.OUT, initial=self.map_to_pin_state(initial))
+        time.sleep(0.1)
+        # Double set initial in setup and here to set the self._state variable
+        self.set(self.map_to_pin_state(initial))
+    def map_to_pin_state(self, state):
+        return self._On if state else self._Off
+    def state(self):
+        return self._state
+    def set(self, state):
+        assert(state is bool)
+        GPIO.output(self._number, self.map_to_pin_state(state))
+        self._state = state
+
+

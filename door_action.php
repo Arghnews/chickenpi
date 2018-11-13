@@ -1,33 +1,31 @@
 <?php
 
-//error_report(E_ALL);
-//ini_set("display_errors", 1);
+/*
+ * Forwards string input from stdin to open socket on localhost
+ * that is assumed to be receiving in (python) program.
+ * Reads reply until $response_end_string then echoes it.
+ * Not exception safe
+ * If response doesn't have $response_end_string may read forever or
+ * at least until eof
+ */
 
-// just passes data (in json) to python script that returns data as json
-// currently don't need json encode stuff as just passes
+$response_end_string = "END_OF_MESSAGE\n";
 
-// in
-$json = file_get_contents('php://input');
-//$data_in = json_decode($json,TRUE);
+$message = file_get_contents('php://input');
 
-$reply = "";
+$response = "";
 
 $fp = fsockopen("localhost", 2520, $errno, $errstr, 5);
 if (!$fp) {
-    echo "$errstr ($errno)<br />\n";
+    $response = "$errstr ($errno)<br />\n";
 } else {
-    // write out json string to socket
-    fwrite($fp, $json);
+    fwrite($fp, $message);
     if (!feof($fp)) {
-        // read reply until newline
-        $reply = fgets($fp);
+        $response = file_get_contents($response_end_string);
     }
     fclose($fp);
 }
 
-// out
-$data = $reply;
-//echo json_encode($data);
-echo $data;
+echo $response;
 
 ?>

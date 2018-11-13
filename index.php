@@ -19,23 +19,6 @@
 <body>
 
 <h1>Welcome to the chickenpi controller!</h1>
-<p>If you see this page, the nginx web server is successfully installed and
-working on Debian. Further configuration is required.</p>
-
-<p>For online documentation and support please refer to
-<a href="http://nginx.org/">nginx.org</a></p>
-
-<p>
-      Please use the <tt>reportbug</tt> tool to report bugs in the
-      nginx package with Debian. However, check <a
-      href="http://bugs.debian.org/cgi-bin/pkgreport.cgi?ordering=normal;archive=0;src=nginx;repeatmerged=0">existing
-      bug reports</a> before reporting a new bug.
-</p>
-
-<p><em>Thank you for using debian and nginx.</em></p>
-
-<p>This is another paragraph.</p>
-
 <!--<button class=door> near door - open </button> -->
 
 <div id=doors>
@@ -48,78 +31,58 @@ working on Debian. Further configuration is required.</p>
     function br() {
         echo "<br>";
     }
-    echo "Hi from php -> unix time ".time()."";
-    br();
-    $localname = `hostname`;
-    $ip = `hostname -I`;
-    $my_location = `pwd`;
-    echo "My name is $localname and I'm at $ip";
-    br();
-    echo "I'm stored in $my_location";
-    br();
-
-
-    $old_path = getcwd();
-    echo "$old_path";
-    br();
-    chdir('/var/www/html/scripts');
-    $p = `./echo.py`;
-    chdir($old_path);
-
-    echo "p returned $p";
-    br();
 ?>
 
 <script>
 $(document).ready(function(){
 
-        var data_to_send = {}
-        data_to_send["request"] = "list_doors"
-        console.log("Asking for doors list")
-        var serialized = JSON.stringify(data_to_send)
-        console.log("Sending",serialized)
+    var data_to_send = {}
+    data_to_send["request"] = "list_doors"
+    console.log("Asking for doors list")
+    var serialized = JSON.stringify(data_to_send)
+    console.log("Sending",serialized)
 
-        $.post("door_action.php", serialized, function(json_data, textStatus, jqXHR) {
-            console.log("Returned with code:", textStatus, jqXHR)
-            console.log("Returned with data:", json_data)
-            //var data = JSON.parse(json_data)
-            var reply = json_data
-            console.log(reply)
-            console.log(reply["response"])
+    $.post("door_action.php", serialized, function(json_data, textStatus, jqXHR) {
+        console.log("Returned with code:", textStatus, jqXHR)
+        console.log("Returned with data:", json_data)
+        //var data = JSON.parse(json_data)
+        var reply = json_data
+        console.log(reply)
+        console.log(reply["response"])
 
-            var doors_html = ""
-            var doors_info = reply["response"]
+        var doors_html = ""
+        var doors_info = reply["response"]
 
-            for (var i=0; i<doors_info.length; ++i) {
-                var html = ""
-                var door = doors_info[i]
-                var door_name = door["door_name"]
-                var door_actions = door["door_actions"]
+        for (var i=0; i<doors_info.length; ++i) {
+            var html = ""
+            var door = doors_info[i]
+            var door_name = door["door_name"]
+            var door_actions = door["door_actions"]
 
-                console.log("Door:",door_name)
-                console.log(door_actions)
+            console.log("Door:",door_name)
+            console.log(door_actions)
 
-                html += "<br><div data-door_name=" + door_name + ">"
-                html += door_name
-                html += "<span class=status></span><br>"
+            html += "<br><div data-door_name=" + door_name + ">"
+            html += door_name
+            html += "<span class=status></span><br>"
 
-                for (var j=0; j<door_actions.length; ++j) {
-                    var door_action = door_actions[j]
-                    html += "<button"
-                    html += " name=" + door_name
-                    html += " class=\"" + "door_button " + door_action
-                    html += "\">"
-                    html += door_action
-                    html += "</button>"
-                    html += " "
-                }
-
-                html += "</div>"
-                doors_html += html
+            for (var j=0; j<door_actions.length; ++j) {
+                var door_action = door_actions[j]
+                html += "<button"
+                html += " name=" + door_name
+                html += " class=\"" + "door_button " + door_action
+                html += "\">"
+                html += door_action
+                html += "</button>"
+                html += " "
             }
-            $("div#doors").replaceWith(doors_html)
-            
-        }, "json")
+
+            html += "</div>"
+            doors_html += html
+        }
+        $("div#doors").replaceWith(doors_html)
+        
+    }, "json")
 
     // door buttons
     // on binds to new eles
@@ -157,11 +120,19 @@ $(document).ready(function(){
             console.log(status)
             var status_span = me.parent("div").find("span.status")
             status_span.html(" - status:" + status)
-            
+
         }, "Json")
     });
 });
 </script>
+
+<br>
+<br>
+
+<div id=temp>
+
+</div>
+
 
 </body>
 </html>

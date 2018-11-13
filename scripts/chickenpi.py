@@ -25,6 +25,8 @@ class Position(enum.Enum):
         return self.name.lower()
 
 class Door:
+    # Startup sleep time - if init all at the same time
+    # can cause strange behaviour
     Sleep_Time = 20.0 / 1000.0 # x / 1000.0, x in ms
     def __init__(
             self,
@@ -134,7 +136,7 @@ class Door:
 class Camera:
 
     # for now (quick job) always active low = on
-    def __init__(self,pin,seconds_on=300):
+    def __init__(self,pin,seconds_on=900):
         self.pin = pin
         self.seconds_on = seconds_on
         self.timer = 0
@@ -182,7 +184,7 @@ def process_input(obj_in, doors, camera):
     obj_out = dict()
     continue_status = True
 
-    # when we have a request, want to activate camera for 5 mins
+    # when we have a request, want to activate the camera
     camera.on()
 
     # processing of request for door stuff
@@ -247,7 +249,7 @@ def main():
         signal.signal(signal.SIGTERM, close)
 
         doors = dict()
-        doors["wall"] = Door(3,5,7,8)
+        doors["wall"] = Door(3,5,37,8)
         doors["near"] = Door(10,11,12,13)
 
         camera = Camera(15)
