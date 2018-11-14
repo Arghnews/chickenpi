@@ -16,9 +16,8 @@ def read_temp(device_file):
         if lines and len(lines) > 1 and \
                 lines[0].endswith("YES") and "t=" in lines[1]:
             temp_string_pos = lines[1].index("t=") + 2
-            temp_string = float(lines[1][temp_string_pos:]) / 1000.0
-            return temp_string
-        time.sleep(1)
+            return float(lines[1][temp_string_pos:]) / 1000.0
+        time.sleep(0.3)
     return None
 
 def read_temp_raw(device_file):
@@ -26,8 +25,7 @@ def read_temp_raw(device_file):
     catdata = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = catdata.communicate()
     out_decode = out.decode("utf-8")
-    lines = [line for line in out_decode.split("\n") if line]
-    return lines
+    return [line for line in out_decode.split("\n") if line]
 
 def eprint(*args, **kwargs):
     import sys
@@ -103,8 +101,4 @@ def main(argv):
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv))
-
-#def read_temp_raw():
-#    with open(device_file, "r") as f:
-#        return f.readlines()
 

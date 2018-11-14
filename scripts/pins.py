@@ -35,6 +35,7 @@ def is_one_of(t, *types):
 
 class Pin(ABC):
     def __init__(self, number, active_state):
+        assert is_one_of(active_state, GPIO.LOW, GPIO.HIGH)
         self._number = number
         if active_state == GPIO.LOW:
             self._On, self._Off = GPIO.LOW, GPIO.HIGH
@@ -49,7 +50,7 @@ class Pin(ABC):
         return "pin: " + str(self._number) + ", state: " + str(self.state())
 
 class InputPin(Pin):
-    def __init__(self, number, active_state=GPIO.HIGH):
+    def __init__(self, number, *, active_state=GPIO.HIGH):
         super().__init__(number, active_state)
         GPIO.setup(self._number, GPIO.IN)
         time.sleep(0.1)
@@ -66,7 +67,7 @@ class InputPin(Pin):
         return "Input" + str(super().__str__())
 
 class OutputPin(Pin):
-    def __init__(self, number, active_state=GPIO.LOW, initial=False):
+    def __init__(self, number, *, active_state=GPIO.LOW, initial=False):
         super().__init__(number, active_state)
         GPIO.setup(self._number, GPIO.OUT, initial=self.map_to_pin_state(initial))
         time.sleep(0.1)
