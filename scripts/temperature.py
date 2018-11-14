@@ -76,7 +76,7 @@ def main(argv):
             str(on_temp) + "/" + str(off_temp))
 
     try:
-        assert(on_temp <= off_temp)
+        assert on_temp <= off_temp
 
         while 1:
             temp = read_temp(device_file)
