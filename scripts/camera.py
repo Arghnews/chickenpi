@@ -5,29 +5,62 @@ import math
 import time
 
 # Class that may be used to check if an amount of time has elapsed
-# TODO: seconds_left seems unclean, dislike the assert that can blow up
+# Ie. what should is_done do when called on a stopped ElapsedTimer?
+# Throw, return false? Should a timer that is done also be stopped?
+# The next interesting question - want to prevent scenario where you
+# ask is it done, it says no, you then print it and it's done as
+# effectively there was a race in that time.
+#
+# # Example output with comments
+# "Camera {(Outputpin: 15, state: False), off}"
+# # camera turned on
+# # "Camera {(Outputpin: 15, state: True), on for 1s more}"
+# # camera then printed again 1 sec later
+# # "Camera {(Outputpin: 15, state: True), off}"
+#
+# # conditional code for print has correctly seen that time is up
+# and put it "off" rather than time left, but the state of the
+# pin is still on as the "poll" function on the object owning the
+# pin that would actually switch it off hasn't been called yet.
+# Could argue this is a bug in the calling code, not this classes
+# problem. Or that any functions called on the timer that observe it
+# should reflect the latest state (but that leads to issues like this).
+# I am taking the way that you can either call is_done or is_done_cached - 
+# I dislike the name. If not cached, then it will use the state from last time,
+# so that for simple if not done: then print stuff dependent on this we
+# get consistency. Trying it for now
+# Another option is [a]sync callbacks or threading but this seems to add more
+# complexity for no benefit
 class ElapsedTimer:
     def __init__(self, seconds):
         self._seconds = seconds
-        self._running = False
+        self._stopped = True
+    # Only entry point to (re)start timer
     def reset(self):
         self._time = time.monotonic()
-        self._running = True
+        self._stopped = False
+        self._time_now(True)
 
-    def elapsed(self):
-        assert self.is_running(), ("May only check if a running timer has "
-                "elapsed")
-        elapsed = time.monotonic() - self._time >= self._seconds
-        if elapsed:
-            self.stop()
-        return elapsed
-    def is_running(self):
-        return self._running
+    def is_done(self):
+        return self._is_done(True)
+    def is_done_cached(self):
+        return self._is_done(False)
     def stop(self):
-        self._running = False
-    def seconds_left(self):
-        assert self.is_running()
-        return max(self._seconds - int(time.monotonic() - self._time), 0)
+        self._stopped = True
+    def is_stopped(self):
+        return self._stopped
+
+    def _time_now(self, realtime):
+        if realtime:
+            self._last_time = time.monotonic()
+        return self._last_time
+    def _is_done(self, cached):
+        if self.is_stopped():
+            return False, None
+        elapsed = int(self._time_now(cached) - self._time)
+        done = elapsed >= self._seconds
+        seconds_left = int(self._seconds - elapsed)
+        return done, None if done else seconds_left 
 
 # Class should prevent the state where both the output_open and output_close
 # are on at once. This is effectively the same as both being off at once
@@ -38,9 +71,12 @@ class ElapsedTimer:
 # and same for closed. Also remember that the manual switches in the coop
 # itself exist and so don't want the poll function to permanently clear
 # the state else these will be cleared too.
+
+# Constructor using "dependency injection"
 class Door:
     def __init__(self, name, *,
-            input_bottom, input_top, output_open, output_close):
+            input_bottom, input_top, output_open, output_close,
+            movement_timeout_sec = 80):
         self._name = name
         self._input_bottom = input_bottom
         self._input_top = input_top
@@ -50,7 +86,7 @@ class Door:
         assert type(input_top) is InputPin
         assert type(output_open) is OutputPin
         assert type(output_close) is OutputPin
-        self._timer = ElapsedTimer(80)
+        self._timer = ElapsedTimer(movement_timeout_sec)
 
     def __str__(self):
         s = ""
@@ -63,8 +99,9 @@ class Door:
                 self.is_closing(): "closing",
                 self.is_stopped(): "stopped",}.get(
                         True, "stopped (both on)")
-        if self._timer.is_running():
-            s += " " + str(self._timer.seconds_left()) + "s left till stopping"
+        done, seconds_left = self._timer.is_done_cached()
+        if not done and not self._timer.is_stopped():
+            s += " " + str(seconds_left) +  "s left till stopping"
         return s
 
     # State/input observers
@@ -98,40 +135,42 @@ class Door:
         self._timer.reset()
 
     def poll(self):
+        done, _ = self._timer.is_done()
         if self.is_closed() and self.is_closing() \
-                or self.is_fully_open() and self.is_opening():
+                or self.is_fully_open() and self.is_opening() \
+                or done and not self._timer.is_stopped():
             self.stop()
-            if self._timer.is_running():
-                self._timer.stop()
-
-        if self._timer.is_running() and self._timer.elapsed():
-            self.stop()
-            self._timer.stop()
 
 class Camera:
-    def __init__(self, pin, seconds_on=900):
+    def __init__(self, pin, timeout_sec = 900):
         assert type(pin) is OutputPin
         self._pin = pin
-        self._timer = ElapsedTimer(seconds_on)
-    def on(self):
+        self._default_timeout = timeout_sec
+        self._timer = ElapsedTimer(timeout_sec)
+    # Note passing a value for the parameter seconds left only applies until
+    # this timer ends/the next time the camera is switched off or reset
+    def on(self, timeout_sec = None):
+        if timeout_sec is not None:
+            self._timer = ElapsedTimer(timeout_sec)
+        else:
+            self._timer = ElapsedTimer(self._default_timeout)
         self._timer.reset()
         self._pin.set(True)
     def off(self):
         self._timer.stop()
         self._pin.set(False)
     def poll(self):
-        if self._timer.is_running() and self._timer.elapsed():
-            self._timer.stop()
+        if self._timer.is_done()[0]:
             self.off()
     def __str__(self):
         s = "Camera {(" + str(self._pin) + "), "
+        done, seconds_left = self._timer.is_done_cached()
+        #if not done and not self._timer.is_stopped():
         if self._pin:
-            s += "on for " + str(self._timer.seconds_left()) + "s more}"
+            s += "on for " + str(seconds_left) + "s more}"
         else:
             s += "off}"
         return s
-
-
 
 wall_door = Door("wall door",
         input_bottom = InputPin(3), input_top = InputPin(5),
@@ -139,7 +178,12 @@ wall_door = Door("wall door",
 near_door = Door("near door",
         input_bottom = InputPin(10), input_top = InputPin(11),
         output_open = OutputPin(12), output_close = OutputPin(13))
-camera = Camera(OutputPin(15))
+camera = Camera(OutputPin(15),1)
+print(camera)
+camera.on()
+print(camera)
+time.sleep(2)
+print(camera)
 
 print(wall_door)
 wall_door.open()
