@@ -2,19 +2,13 @@
 
 import atexit
 import sys
-import signal
 import time
 from enum import Enum
 from abc import ABC, abstractmethod
 
-def exit_wrapper(signum, frame):
-    print("Received " + str(signum) + " - cleaning up and exiting")
-    # Exit normally running cleanup functions
-    sys.exit()
-
 @atexit.register
 def cleanup_gpio():
-    print("cleaning")
+    print("Cleaning gpio pins")
     GPIO.cleanup()
 
 try:
@@ -24,8 +18,6 @@ except RuntimeError:
     print("Error importing RPi.GPIO!  This is probably because you need superuser privileges.  You can achieve this by using 'sudo' to run your script")
     sys.exit(1)
 GPIO.setmode(GPIO.BOARD)
-signal.signal(signal.SIGINT, exit_wrapper)
-signal.signal(signal.SIGTERM, exit_wrapper)
 
 # Only thing I'm not so keen on is initally the state is None
 # which in comparisons can often seem like false/off... oh well
