@@ -3,6 +3,8 @@
 import sys
 
 from pins import InputPin, OutputPin
+from door import Door
+from camera import Camera
 import cleanexit
 
 def main(argv):

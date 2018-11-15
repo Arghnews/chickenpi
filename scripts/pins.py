@@ -6,18 +6,14 @@ import time
 from enum import Enum
 from abc import ABC, abstractmethod
 
+import utils
+
+utils.import_gpio()
+
 @atexit.register
 def cleanup_gpio():
     print("Cleaning gpio pins")
     GPIO.cleanup()
-
-try:
-    import RPi.GPIO as GPIO
-    print("Successfully imported RPi.GPIO")
-except RuntimeError:
-    print("Error importing RPi.GPIO!  This is probably because you need superuser privileges.  You can achieve this by using 'sudo' to run your script")
-    sys.exit(1)
-GPIO.setmode(GPIO.BOARD)
 
 # Only thing I'm not so keen on is initally the state is None
 # which in comparisons can often seem like false/off... oh well
