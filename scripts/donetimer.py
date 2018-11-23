@@ -34,6 +34,7 @@ class DoneTimer:
     def __init__(self, seconds):
         self._seconds = seconds
         self._stopped = True
+        self.reset()
     # Only entry point to (re)start timer
     def reset(self):
         self._time = time.monotonic()
@@ -59,4 +60,4 @@ class DoneTimer:
         elapsed = int(self._time_now(cached) - self._time)
         done = elapsed >= self._seconds
         seconds_left = int(self._seconds - elapsed)
-        return done, None if done else seconds_left 
+        return done, None if done else seconds_left

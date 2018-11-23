@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import sys
 from donetimer import DoneTimer
 from pins import OutputPin
 
@@ -16,7 +17,6 @@ class Camera:
             self._timer = DoneTimer(timeout_sec)
         else:
             self._timer = DoneTimer(self._default_timeout)
-        self._timer.reset()
         self._pin.set(True)
     def off(self):
         self._timer.stop()
@@ -34,3 +34,10 @@ class Camera:
             s += "off}"
         return s
 
+def main(argv):
+    camera = Camera(OutputPin(15), 9999)
+    camera.on()
+    input("Input key to turn off camera")
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

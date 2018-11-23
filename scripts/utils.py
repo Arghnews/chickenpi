@@ -26,11 +26,9 @@ def exit_if_not_root():
         eprint("Must be run as root - exiting")
         sys.exit(1)
 
-def import_gpio():
+def setup_gpio():
     exit_if_not_root()
-    # Probably bad practice but seems cool for this
-    # Sets the key GPIO to RPi.GPIO in global namespace
-    import RPi.GPIO
-    globals()["GPIO"] = RPi.GPIO
+    catch_signals_exit_cleanly()
+    import RPi.GPIO as GPIO
     GPIO.setmode(GPIO.BOARD)
 

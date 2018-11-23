@@ -7,8 +7,9 @@ from enum import Enum
 from abc import ABC, abstractmethod
 
 import utils
-
-utils.import_gpio()
+utils.setup_gpio()
+import RPi.GPIO as GPIO
+GPIO.setmode(GPIO.BOARD)
 
 @atexit.register
 def cleanup_gpio():
