@@ -73,3 +73,8 @@ class OutputPin(Pin):
     def __str__(self):
         return "Output" + str(super().__str__())
 
+    def on(self):
+        self.set(True)
+    def off(self):
+        self.set(False)
+

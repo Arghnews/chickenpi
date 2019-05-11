@@ -14,9 +14,14 @@ def get_console_and_file_logger(filename):
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
     logger.addHandler(get_console_handler())
-    logger.addHandler(get_file_handler(filename))
+    filename, verbose_filename = gen_logfile_name(filename)
+    logger.addHandler(get_file_handler(filename, logging.INFO))
+    logger.addHandler(get_file_handler(verbose_filename, logging.DEBUG))
     return logger
 
+def gen_logfile_name(filename):
+    f = lambda f: ".".join([f, "verbose", "log"])
+    return filename, f(filename[:-4] if filename.endswith(".log") else filename)
 
 def get_formatter():
     # create formatter
@@ -31,9 +36,10 @@ def get_console_handler():
     console_handler.setFormatter(get_formatter())
     return console_handler
 
-def get_file_handler(filename):
+# eg. logging.INFO
+def get_file_handler(filename, log_level):
     file_h = logging.FileHandler(filename)
-    file_h.setLevel(logging.DEBUG)
+    file_h.setLevel(log_level)
     file_h.setFormatter(get_formatter())
     return file_h
 

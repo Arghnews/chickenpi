@@ -1,0 +1,190 @@
+#!/usr/bin/env python3
+
+import glob
+import os
+import subprocess
+import sys
+import time
+
+import my_logger
+import utils
+
+import RPi.GPIO as GPIO
+
+# FIXME: better name
+def check_boot_config():
+    with open("/boot/config.txt", "r") as f:
+        if not any(line.startswith("dtoverlay=w1-gpio")
+                for line in f.read().splitlines()):
+            raise RuntimeError("/boot/config.txt doesn't contain "
+                    "\"dtoverlay=w1-gpio\" line")
+
+def _init():
+    #utils.import_gpio()
+    check_boot_config()
+    os.system("modprobe w1-gpio")
+    os.system("modprobe w1-therm")
+    # TODO:
+    # Check exit codes of these, should both be 0
+    # Assert that /sys/bus/w1/devices/28*/w1_slave exists
+    # Rewrite this as class
+    # CANDO: change Popen from spawning a process every time
+    # to a thread that waits and gets signalled somehow to read it and get
+    # result but need timeout in case that thread hangs and then need
+    # to be able to kick it out from that hanging
+
+_init()
+
+def main(argv):
+    base_dir = "/sys/bus/w1/devices/"
+    device_folder = glob.glob(base_dir + "28*")[0]
+    device_file = device_folder + "/w1_slave"
+    cmd = ["cat", "/sys/bus/w1/devices/28-0316a4bd7aff/w1_slave"]
+    cmd = ["cat", "/var/www/html/scripts/camera.py"]
+    #res = run_cmd(cmd)
+    res = read_temp("/sys/bus/w1/devices/28-0316a4bd7aff/w1_slave")
+    print(res)
+    #res = read_temp_raw("/var/www/html/scripts/a.out")
+    #print("[" + res + "]") #print(res.stdout)
+    mayn(argv)
+    pass
+
+def read_temp(device_file):
+    # Retry if doesn't work
+    for _ in range(4):
+        try:
+            return parse_temp_from_raw(device_file)
+        except RuntimeError as e:
+            utils.eprint(str(e))
+        time.sleep(0.5)
+    # If it hasn't worked by now, try again - if it throws this time
+    # we'll let it be raised as something may have really gone wrong
+    return parse_temp_from_raw(device_file)
+
+# Perhaps catch specfic errors from these, downside is functions are not
+# really free but dependant on each other
+# RuntimeError, subprocess.TimeoutExpired, ValueError
+# and this feels rather like exposing implementation details of the
+# helper functions but I think it's still best...
+
+# Either works and returns float
+def parse_temp_from_raw(device_file):
+    lines = read_temp_raw(device_file).splitlines()
+    if lines and len(lines) > 1 and \
+            lines[0].endswith("YES") and "t=" in lines[1]:
+        temp_string_pos = lines[1].find("t=")
+        if temp_string_pos != -1:
+            return float(lines[1][temp_string_pos + 2:]) / 1000.0
+    raise RuntimeError("Could not parse temp from output: \"" +
+            "\n".join(lines) + "\"")
+
+# Either works and returns string of output or raises RuntimeError
+def read_temp_raw(device_file):
+    cmd = ["cat", device_file]
+    error = None
+    try:
+        subp = subprocess.Popen(cmd,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                universal_newlines = True)
+        stdout, stderr = subp.communicate(timeout = 3)
+    except subprocess.TimeoutExpired as e:
+        error = e
+
+    error_message = None
+    if error:
+        error_message = str(error)
+    elif stderr or subp.returncode != 0:
+        error_message = "Error, command \"" + " ".join(cmd) + \
+                "\" exited with exit status " + str(subp.returncode) + \
+                " and error message: \"" + stderr + "\""
+
+    if error_message:
+        raise RuntimeError(error_message)
+
+    return stdout.rstrip()
+
+os.system("modprobe w1-gpio")
+os.system("modprobe w1-therm")
+#os.system("dtoverlay w1-gpio gpiopin=10 pullup=0")
+
+# In addition to tutorial stuff and these and editting /boot/config.txt
+# Prerequisite:
+# Add "dtoverlay w1-gpio" into /boot/config.txt and reboot
+# Can use "sudo dtoverlay w1-gpio gpiopin=10 pullup=0" to mask pin to also use gpio 10
+# and adding
+# Had to use to set pin 19 on board, 10 outside
+# sudo dtoverlay w1-gpio gpiopin=10 pullup=0
+# Now using default pin - inboard 7
+
+base_dir = "/sys/bus/w1/devices/"
+device_folder = glob.glob(base_dir + "28*")[0]
+device_file = device_folder + "/w1_slave"
+
+from pins import InputPin, OutputPin
+from door import Door
+import datetime
+
+# https://stackoverflow.com/a/38836918
+def is_now_in_time_period(start_time, end_time, now_time = None):
+    if now_time is None:
+        now_time = datetime.datetime.now().time()
+    if start_time < end_time:
+        return now_time >= start_time and now_time <= end_time
+    else: #Over midnight
+        return now_time >= start_time or now_time <= end_time
+
+def mayn(argv):
+    logger = my_logger.get_console_and_file_logger("/home/pi/temperature.log")
+    from RPi import GPIO
+
+    # Active low
+    ON, OFF = GPIO.LOW, GPIO.HIGH
+
+    heater = 40
+    logger.info("Heater on pin " + str(heater))
+    GPIO.setup(heater, GPIO.OUT, initial=OFF)
+
+    on_temp = 1.0
+    off_temp = 2.5
+    logger.info("Temperature on/off thresholds in degrees C: " +
+            str(on_temp) + "/" + str(off_temp))
+
+    wall_door = Door("wall door",
+            input_bottom = InputPin(3), input_top = InputPin(5),
+            output_open = OutputPin(37), output_close = OutputPin(8))
+    near_door = Door("near door",
+            input_bottom = InputPin(10), input_top = InputPin(11),
+            output_open = OutputPin(12), output_close = OutputPin(13))
+    try:
+        assert on_temp <= off_temp
+        if is_now_in_time_period(datetime.time(9), datetime.time(9, 5)):
+            logger.info("Opening doors")
+            wall_door.open()
+            near_door.open()
+        while True:
+            temp = read_temp(device_file)
+            # if not temp # TEMP MAY BE uyy0
+            if temp is None:
+                logger.warning("Error reading temperature")
+            else:
+                log_temp_str = "Read temperature as " + str(temp)
+                if temp <= on_temp:
+                    log_temp_str += " - setting heater on"
+                    GPIO.output(heater, ON)
+                elif temp >= off_temp:
+                    log_temp_str += " - setting heater off"
+                    GPIO.output(heater, OFF)
+                logger.info(log_temp_str)
+
+            time.sleep(60)
+    except Exception as e:
+        logger.critical("Exception raised: " + str(e))
+    finally:
+        logger.info("Cleaning up and turning off heater")
+        GPIO.output(heater, OFF)
+        GPIO.cleanup()
+    logger.info("Done - exiting")
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))
+
