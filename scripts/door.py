@@ -31,6 +31,9 @@ class Door:
         assert type(output_close) is OutputPin
         self._timer = DoneTimer(movement_timeout_sec)
 
+    def name(self):
+        return self._name
+
     def __str__(self):
         s = ""
         s += "Door " + self._name + " is " + \

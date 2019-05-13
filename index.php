@@ -41,14 +41,14 @@ $(document).ready(function(){
     console.log("Asking for doors list")
     var serialized = JSON.stringify(data_to_send)
     console.log("Sending",serialized)
+    console.log("Sending",serialized)
 
     $.post("door_action.php", serialized, function(json_data, textStatus, jqXHR) {
         console.log("Returned with code:", textStatus, jqXHR)
         console.log("Returned with data:", json_data)
         //var data = JSON.parse(json_data)
         var reply = json_data
-        console.log(reply)
-        console.log(reply["response"])
+        console.log("Response key:", reply["response"])
 
         var doors_html = ""
         var doors_info = reply["response"]
@@ -62,26 +62,27 @@ $(document).ready(function(){
             console.log("Door:",door_name)
             console.log(door_actions)
 
-            html += "<br><div data-door_name=" + door_name + ">"
+            html += "<br><div data-door_name=\"" + door_name + "\">"
             html += door_name
             html += "<span class=status></span><br>"
 
             for (var j=0; j<door_actions.length; ++j) {
                 var door_action = door_actions[j]
                 html += "<button"
-                html += " name=" + door_name
-                html += " class=\"" + "door_button " + door_action
-                html += "\">"
-                html += door_action
-                html += "</button>"
-                html += " "
+
+                html += " name=\"" + door_name + "\""
+                html += " class=\"door_button\""
+                html += " data-action=\"" + door_action + "\""
+
+                html += ">" + door_action
+                html += "</button> "
             }
 
             html += "</div>"
             doors_html += html
         }
         $("div#doors").replaceWith(doors_html)
-        
+
     }, "json")
 
     // door buttons
@@ -93,7 +94,7 @@ $(document).ready(function(){
         console.log(me)
         //console.log(me[0].outerHTML)
         var door_name = me.attr("name")
-        var action = me.attr("class") // open, close, stop
+        var action = me.attr("data-action") // open, close, stop
 
         var data_to_send = {}
         data_to_send["request"] = "door_action"
