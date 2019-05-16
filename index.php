@@ -5,10 +5,14 @@
 <title>Chickenpi</title>
 <style>
     body {
-        width: 35em;
+        width: 25em;
         margin: 0 auto;
         font-family: Tahoma, Verdana, Arial, sans-serif;
     }
+    button {
+        width: 10em; height: 4em; margin: 0.8em; font-weight: bold;
+    }
+
 </style>
 
 <script src=jquery-3.2.1.js>
@@ -26,7 +30,6 @@
 </div>
 
 <br>
-<br>
 <?php
     function br() {
         echo "<br>";
@@ -35,6 +38,29 @@
 
 <script>
 $(document).ready(function(){
+
+    // TODO: this shit is such a fucking mess and I hate it enough to learn
+    // some react and rewrite it. Do this.
+
+    (function () {
+
+    var clockElement = document.getElementById( "clock" );
+
+    function updateClock ( clock ) {
+        var event = new Date();
+        utc_string = event.toLocaleString('en-GB', { timeZone: 'Etc/UTC' });
+        local_string = event.toLocaleString('en-GB', { timeZone: 'Europe/London' });
+        clock.innerHTML = "<br>Time now (UTC): " + utc_string +
+                    "<br>Time now (local): " + local_string;
+      }
+
+    updateClock(clockElement);
+      setInterval(function () {
+          updateClock( clockElement );
+      }, 5000);
+
+    }());
+
 
     var data_to_send = {}
     data_to_send["request"] = "list_doors"
@@ -48,10 +74,12 @@ $(document).ready(function(){
         console.log("Returned with data:", json_data)
         //var data = JSON.parse(json_data)
         var reply = json_data
+
         console.log("Response key:", reply["response"])
 
         var doors_html = ""
-        var doors_info = reply["response"]
+        var response = reply["response"]
+        var doors_info = response["doors"]
 
         for (var i=0; i<doors_info.length; ++i) {
             var html = ""
@@ -81,7 +109,30 @@ $(document).ready(function(){
             html += "</div>"
             doors_html += html
         }
+
+        console.log("-----")
         $("div#doors").replaceWith(doors_html)
+
+		/* var event = new Date(); */
+		/* var event = new Date(); */
+
+		// British English uses day-month-year order and 24-hour time without AM/PM
+		/* https://en.wikipedia.org/wiki/List_of_tz_database_time_zones */
+		/* console.log(event.toLocaleString('en-GB', { timeZone: 'Etc/UTC' })); */
+		/* console.log(event.toLocaleString('en-GB', { timeZone: 'Europe/London' })); */
+		/* console.log("") */
+
+        /* closing_html = "<br><br>Coop door opening and closing times" */
+        closing_html = "";
+        closing_html += "<br>Coop will close at sunset (note timezones)";
+        closing_html += "<br>Sunrise time (UTC): " + response["sunrise"]
+        closing_html += "<br>Sunset time (UTC): " + response["sunset"]
+        $("div#sun_times").replaceWith(closing_html)
+
+        /* console.log("My") */
+        console.log("Responded with sunrise:", response["sunrise"])
+        /* console.log("sharona") */
+        console.log("Responded with sunset:", response["sunset"])
 
     }, "json")
 
@@ -100,6 +151,21 @@ $(document).ready(function(){
         data_to_send["request"] = "door_action"
         data_to_send["door_name"] = door_name
         data_to_send["door_action"] = action
+
+        if (action === "open")
+        {
+            var msg = "WARNING: are you SURE you want to open that door?";
+            msg += "(Think of chicken safety!)";
+            if (confirm(msg))
+            {
+                console.log("Change made");
+            }
+            else
+            {
+                console.log("Nothing changed - user opted out of confirm");
+                return;
+            }
+        }
 
         console.log("Data to send",data_to_send)
         var serialized = JSON.stringify(data_to_send);
@@ -128,12 +194,13 @@ $(document).ready(function(){
 </script>
 
 <br>
-<br>
 
-<div id=temp>
-
+<div id=clock>
 </div>
-
+<div id=sun_times>
+</div>
+<div id=current_door_times>
+</div>
 
 </body>
 </html>

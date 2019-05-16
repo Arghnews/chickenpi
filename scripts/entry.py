@@ -57,12 +57,12 @@ def main(argv):
         bool_to_str = lambda x: "on" if x else "off"
         last_date = None
         doors = [wall_door, near_door]
-        door_actions = ["open", "close", "stop", "check_position"]
+        door_actions = ["open", "stop", "close", "check_position"]
 
-        # for door in doors:
-        #     door.close()
-        # time.sleep(80)
-        # input("Done closing doors")
+#         for door in doors:
+#             door.close()
+#         time.sleep(80)
+#         input("Done closing doors")
 
         while True:
 
@@ -87,13 +87,16 @@ def main(argv):
             # TODO; changed this for now so it doesn't open so early
             # Think of elegant solution for this for summer/winter split
             if is_now_in_time_period(add_time(sunrise, minutes = 90), add_time(sunrise, minutes = 100)):
-                logger.info("Opening doors")
-                wall_door.open()
-                near_door.open()
+                logger.info("Doors will not be opened automatically for now.")
+                # logger.info("Opening doors")
+                # wall_door.open()
+                # near_door.open()
             if is_now_in_time_period(sunset, add_time(sunset, minutes = 10)):
                 logger.info("Closing doors")
                 wall_door.close()
                 near_door.close()
+            else:
+                print("Time now:", datetime.datetime.utcnow().time(), "vs sunset:", sunset)
 
             if is_now_in_time_period(datetime.time(0, 0), datetime.time(0, 5)):
                 # Print blank line
@@ -103,17 +106,19 @@ def main(argv):
             wall_door.poll()
             near_door.poll()
 
-            for door in doors:
-                print(door.name())
-                print("Is open:", door.is_fully_open())
-                print("Is middle:", door.is_in_middle())
-                print("Is closed:", door.is_closed())
+            # for door in doors:
+            #     print(door.name())
+            #     print("Is open:", door.is_fully_open())
+            #     print("Is middle:", door.is_in_middle())
+            #     print("Is closed:", door.is_closed())
 
             # Setting this timer high is an easy way to stall the loop when
             # the website is not being used
             json_in = json_socket.read(timeout = 30)
             if json_in is not None:
-                reply = json_response(doors, door_actions, json_in)
+                reply = json_response(json_in, doors = doors,
+                        door_actions = door_actions,
+                        sunset = sunset, sunrise = sunrise)
                 logger.info("json_socket read in \"" + str(json_in) + "\"")
                 if reply is not None:
                     logger.info("Replying with " + str(reply))
@@ -127,9 +132,15 @@ def main(argv):
     finally:
         json_socket.close()
 
-def json_response(doors, door_actions, json_in):
+def json_response(json_in, **kwargs):
     if json_in is None:
         return None
+
+    # At least for now
+    doors = kwargs["doors"]
+    door_actions = kwargs["door_actions"]
+    sunset = kwargs["sunset"]
+    sunrise = kwargs["sunrise"]
 
     obj_out = {}
     if "request" not in json_in:
@@ -138,13 +149,18 @@ def json_response(doors, door_actions, json_in):
 
     request = json_in["request"]
     if request == "list_doors":
-        response = []
+        response = {}
+
+        response["doors"] = []
         for door in doors:
-            response.append(
+            response["doors"].append(
                     {
                         "door_name": door.name(),
                         "door_actions": door_actions,
                         })
+
+        response["sunset"] = str(sunset)
+        response["sunrise"] = str(sunrise)
         obj_out["response"] = response
     elif request == "door_action":
         door_name = json_in["door_name"]

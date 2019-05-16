@@ -35,7 +35,7 @@ class Door:
             d_open,
             d_close,
             active_low=True,
-            movement_time_s=80):
+            movement_time_s=100):
 
         pins = [in_low,in_up,d_open,d_close]
         if len(pins) > len(set(pins)):
@@ -158,7 +158,7 @@ class Camera:
             self.timer = 0
             # switch off camera
             GPIO.output(self.pin, GPIO.HIGH)
-        
+
 
 
 # json_in -> json_out

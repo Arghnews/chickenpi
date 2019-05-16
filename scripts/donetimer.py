@@ -23,12 +23,15 @@ import time
 # Could argue this is a bug in the calling code, not this classes
 # problem. Or that any functions called on the timer that observe it
 # should reflect the latest state (but that leads to issues like this).
-# I am taking the way that you can either call is_done or is_done_cached - 
+# I am taking the way that you can either call is_done or is_done_cached -
 # I dislike the name. If not cached, then it will use the state from last time,
 # so that for simple if not done: then print stuff dependent on this we
 # get consistency. Trying it for now
 # Another option is [a]sync callbacks or threading but this seems to add more
 # complexity for no benefit
+
+# TODO: looking back (or rather glancing/thinking) at this class I'm already
+# mentally vommiting - change and simplify methinks, it just seems too complex.
 
 class DoneTimer:
     def __init__(self, seconds):

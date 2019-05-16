@@ -82,8 +82,13 @@ class Door:
 
     def poll(self):
         done, _ = self._timer.is_done()
-        if self.is_closed() and self.is_closing() \
-                or self.is_fully_open() and self.is_opening() \
-                or done and not self._timer.is_stopped():
+        # Microswitches are complete bollocks lately - don't rely on knowing
+        # where the doors are through them. Just close/open for the maximum
+        # amount of time, every time.
+        if done:
             self.stop()
+        # if self.is_closed() and self.is_closing() \
+        #         or self.is_fully_open() and self.is_opening() \
+        #         or done and not self._timer.is_stopped():
+        #     self.stop()
 
