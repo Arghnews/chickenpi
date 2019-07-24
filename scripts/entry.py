@@ -8,11 +8,12 @@ import sys
 from pins import InputPin, OutputPin
 from door import Door
 from camera import Camera
-from heater import Heater
+# from heater import Heater
 from thermometer import Thermometer
 from my_logger import get_console_and_file_logger
 from donetimer import DoneTimer
-from sunset_sunrise import get_sunrise_sunset_as_times
+# from sunset_sunrise import get_sunrise_sunset_as_times
+import sunset_sunrise
 from json_socket import JsonSocket
 
 import utils
@@ -27,6 +28,8 @@ import RPi.GPIO as GPIO
 # Change hard coded door closing times to either be pulled from a light sensor
 # (to be bought) or pull data from web
 # eg. https://www.thetimeandplace.info/uk/london-city-of-london
+
+# FIXME: heater disabled as not showing up in /sys/bus/w1/devices/28* is what looking for -_-
 
 def main(argv):
 
@@ -50,9 +53,13 @@ def main(argv):
     #TESTING THIS
     try:
         sunrise, sunset = datetime.time(8, 0), datetime.time(21, 0)
+        times_today = sunset_sunrise.TimesToday(
+                earliest_open_hour = 4, earliest_open_minute = 0,
+                latest_close_hour = 22, latest_close_minute = 55,
+                )
         # Download new sunrise/sunset times on switch on or on day change
-        heater = Heater(1.0, 3.0, pin = OutputPin(40),
-                thermometer = Thermometer())
+        # heater = Heater(1.0, 3.0, pin = OutputPin(40),
+        #         thermometer = Thermometer())
         record_temp_timer = DoneTimer(300)
         bool_to_str = lambda x: "on" if x else "off"
         last_date = None
@@ -68,40 +75,39 @@ def main(argv):
 
             # For things that run once per day when day changes or when
             # switched on
-            if last_date != datetime.datetime.today().date():
-                last_date = datetime.datetime.today().date()
-                sunrise, sunset = get_sunrise_sunset_as_times()
-                logger.info("New sunrise time: " + str(sunrise) + " and sunset time: " +
-                        str(sunset))
+            if times_today.next_day_utc():
+                logger.info("\nNew day (utc)")
+                logger.info(str(times_today))
 
-            if heater.poll():
-                logger.info("Heater now " + bool_to_str(heater.state()) +
-                        " as temperature now " +
-                        str(heater.read_temperature()))
-            elif record_temp_timer.is_done()[0]:
-                logger.debug("Temperature (celsius): " +
-                        str(heater.read_temperature()))
-                record_temp_timer.reset()
+            # if heater.poll():
+            #     logger.info("Heater now " + bool_to_str(heater.state()) +
+            #             " as temperature now " +
+            #             str(heater.read_temperature()))
+            # elif record_temp_timer.is_done()[0]:
+            #     logger.debug("Temperature (celsius): " +
+            #             str(heater.read_temperature()))
+            #     record_temp_timer.reset()
 
+            # TODO: when enabling door opening again, copy closing time idiom
             # if is_now_in_time_period(datetime.time(7, 0), datetime.time(7, 5)):
             # TODO; changed this for now so it doesn't open so early
             # Think of elegant solution for this for summer/winter split
-            if is_now_in_time_period(add_time(sunrise, minutes = 90), add_time(sunrise, minutes = 100)):
-                logger.info("Doors will not be opened automatically for now.")
-                # logger.info("Opening doors")
-                # wall_door.open()
-                # near_door.open()
-            if is_now_in_time_period(sunset, add_time(sunset, minutes = 10)):
-                logger.info("Closing doors")
-                wall_door.close()
-                near_door.close()
-            else:
-                print("Time now:", datetime.datetime.utcnow().time(), "vs sunset:", sunset)
+            if times_today.now_in_period_minutes_after_earliest_open(0, 5):
+                logger.info("Opening door:" + str(wall_door))
+                wall_door.open()
+            if times_today.now_in_period_minutes_after_earliest_open(5, 10):
+                logger.info("Opening door:" + str(near_door))
+                near_door.open()
 
-            if is_now_in_time_period(datetime.time(0, 0), datetime.time(0, 5)):
-                # Print blank line
-                # or end of day
-                logger.info("")
+            # With door actuators sharing circuitry with food ones only close
+            # or open one door at a time
+            # TODO: same with open once we are opening doors again
+            if times_today.now_in_period_minutes_after_latest_close(0, 5):
+                logger.info("Closing wall (far) door")
+                wall_door.close()
+            if times_today.now_in_period_minutes_after_latest_close(5, 10):
+                logger.info("Closing near door")
+                near_door.close()
 
             wall_door.poll()
             near_door.poll()
@@ -118,7 +124,7 @@ def main(argv):
             if json_in is not None:
                 reply = json_response(json_in, doors = doors,
                         door_actions = door_actions,
-                        sunset = sunset, sunrise = sunrise)
+                        times_today = times_today)
                 logger.info("json_socket read in \"" + str(json_in) + "\"")
                 if reply is not None:
                     logger.info("Replying with " + str(reply))
@@ -139,8 +145,9 @@ def json_response(json_in, **kwargs):
     # At least for now
     doors = kwargs["doors"]
     door_actions = kwargs["door_actions"]
-    sunset = kwargs["sunset"]
-    sunrise = kwargs["sunrise"]
+    times_today = kwargs["times_today"]
+    # sunrise = times_today.sunrise
+    # sunset = times_today.sunset
 
     obj_out = {}
     if "request" not in json_in:
@@ -159,8 +166,10 @@ def json_response(json_in, **kwargs):
                         "door_actions": door_actions,
                         })
 
-        response["sunset"] = str(sunset)
-        response["sunrise"] = str(sunrise)
+        # response["sunrise"] = str(sunrise)
+        # response["sunset"] = str(sunset)
+        # Quick hack for now, with html pre tags for unformatted
+        response["times_today_str"] = "<pre>" + str(times_today) + "</pre>"
         obj_out["response"] = response
     elif request == "door_action":
         door_name = json_in["door_name"]

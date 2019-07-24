@@ -22,14 +22,13 @@
 
 <body>
 
-<h1>Welcome to the chickenpi controller!</h1>
+<h4>Welcome to the chickenpi controller!</h4>
 <!--<button class=door> near door - open </button> -->
 
 <div id=doors>
     Loading doors data...
 </div>
 
-<br>
 <?php
     function br() {
         echo "<br>";
@@ -50,7 +49,7 @@ $(document).ready(function(){
         var event = new Date();
         utc_string = event.toLocaleString('en-GB', { timeZone: 'Etc/UTC' });
         local_string = event.toLocaleString('en-GB', { timeZone: 'Europe/London' });
-        clock.innerHTML = "<br>Time now (UTC): " + utc_string +
+        clock.innerHTML = "Time now (UTC): " + utc_string +
                     "<br>Time now (local): " + local_string;
       }
 
@@ -60,7 +59,6 @@ $(document).ready(function(){
       }, 5000);
 
     }());
-
 
     var data_to_send = {}
     data_to_send["request"] = "list_doors"
@@ -90,7 +88,7 @@ $(document).ready(function(){
             console.log("Door:",door_name)
             console.log(door_actions)
 
-            html += "<br><div data-door_name=\"" + door_name + "\">"
+            html += "<div data-door_name=\"" + door_name + "\">"
             html += door_name
             html += "<span class=status></span><br>"
 
@@ -123,10 +121,16 @@ $(document).ready(function(){
 		/* console.log("") */
 
         /* closing_html = "<br><br>Coop door opening and closing times" */
-        closing_html = "";
-        closing_html += "<br>Coop will close at sunset (note timezones)";
-        closing_html += "<br>Sunrise time (UTC): " + response["sunrise"]
-        closing_html += "<br>Sunset time (UTC): " + response["sunset"]
+        closing_html = "<br><i>(Scroll the page down!)</i><br>";
+        closing_html += "<ul>";
+	    closing_html += "<li>Coop doors open and close at <b>earliest open and latest close</b> times</li>"
+	    closing_html += "<li>Refresh this page to see updated information</li>"
+	    closing_html += "<li>Sunset/sunrise and open/close times change daily</li>"
+        closing_html += "</ul>";
+        /* closing_html += "<br>Coop will close at sunset (note timezones)"; */
+        /* closing_html += "<br>Sunrise time (UTC): " + response["sunrise"] */
+        /* closing_html += "<br>Sunset time (UTC): " + response["sunset"] */
+	    closing_html += response["times_today_str"]
         $("div#sun_times").replaceWith(closing_html)
 
         /* console.log("My") */
