@@ -90,22 +90,22 @@ class TimesToday:
         if self.today is None:
             return "TimesToday instance uninitialised (call self.next_day_utc)"
         return textwrap.dedent("""\
-        {:<25} {}
-        {:<25} {}
-        {:<25} {}
+        {:<30} {}
+        {:<30} {}
+        {:<30} {}
 
-        {:<25} {:02d}:{:02d}
-        {:<25} {:02d}:{:02d}
+        {:<30} {:02d}:{:02d}
+        {:<30} {:02d}:{:02d}
 
-        {:<25} {}
-        {:<25} {}
-        {:<25} {}
-        {:<25} {}
+        {:<30} {}
+        {:<30} {}
+        {:<30} {}
+        {:<30} {}
 
-        {:<25} {}
-        {:<25} {}
-        {:<25} {}
-        {:<25} {}\
+        {:<30} {}
+        {:<30} {}
+        {:<30} {}
+        {:<30} {}\
         """).format(
                 "Today utc:", self.today,
                 "Datetime now utc:", utc_now().replace(microsecond = 0),
@@ -122,10 +122,12 @@ class TimesToday:
                 "Sunset local:", self.sunset_local,
 
                 "Earliest open utc:", self.earliest_open_utc,
-                "Earliest open local:", self.earliest_open_local,
+                "Earliest <b>open</b> local:          ", self.earliest_open_local,
                 "Latest close utc:", self.latest_close_utc,
-                "Latest close local:", self.latest_close_local,
+                "Latest <b>close</b> local:           ", self.latest_close_local,
                 )
+        # The above spacing for times is to bolden the open/close
+        # This all comes as html, spacing for formatting, quick and dirty fix
 
 def get_sunrise_sunset_as_times():
     # TODO: remove this version
