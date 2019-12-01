@@ -121,7 +121,9 @@ $(document).ready(function(){
 		/* console.log("") */
 
         /* closing_html = "<br><br>Coop door opening and closing times" */
-        closing_html = "<br><i>(Scroll the page down!)</i><br>";
+        closing_html = ""
+	    closing_html += response["times_today_str"]
+        closing_html += "<br><i>(Scroll the page down!)</i><br>";
         closing_html += "<ul>";
 	    closing_html += "<li>Coop doors open and close at <b>earliest open and latest close</b> times</li>"
 	    closing_html += "<li>Refresh this page to see updated information</li>"
@@ -130,7 +132,6 @@ $(document).ready(function(){
         /* closing_html += "<br>Coop will close at sunset (note timezones)"; */
         /* closing_html += "<br>Sunrise time (UTC): " + response["sunrise"] */
         /* closing_html += "<br>Sunset time (UTC): " + response["sunset"] */
-	    closing_html += response["times_today_str"]
         $("div#sun_times").replaceWith(closing_html)
 
         /* console.log("My") */

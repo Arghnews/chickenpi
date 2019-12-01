@@ -35,6 +35,29 @@ class TimesToday:
         self.latest_close_hour = latest_close_hour
         self.latest_close_minute = latest_close_minute
 
+    # Pretty garbage code duplication crap but hacking this for now.
+    # TODO: fix this to make cleaner
+    def _now_in_period_seconds_after_datetime(self, t, from_, to):
+        assert from_ < to
+        assert to < 600 # If this doesn't hold likely a mistake
+        # Get timezone aware utc datetime now
+        now = datetime.datetime.now(tz = datetime.timezone.utc)
+        from_delta = datetime.timedelta(seconds = from_)
+        to_delta = datetime.timedelta(seconds = to)
+        return t + from_delta <= now < t + to_delta
+
+    # Half open interval, from_ <= x < to, [from_, to)
+    def now_in_period_seconds_after_earliest_open(self, from_, to):
+        return self._now_in_period_seconds_after_datetime(
+                self.earliest_open_utc, from_, to)
+
+    # Half open interval, from_ <= x < to, [from_, to)
+    def now_in_period_seconds_after_latest_close(self, from_, to):
+        assert to < 60 * 60
+        return self._now_in_period_seconds_after_datetime(
+                self.latest_close_utc, from_, to)
+
+
     # Half open interval, returns t + from_ <= now < t + to, [from_, to)
     def _now_in_period_minutes_after_datetime(self, t, from_, to):
         assert from_ < to
@@ -90,6 +113,11 @@ class TimesToday:
         if self.today is None:
             return "TimesToday instance uninitialised (call self.next_day_utc)"
         return textwrap.dedent("""\
+        <b>{:<30} {}</b>
+        <b>{:<30} {}</b>
+        <b>{:<30} {}</b>
+
+
         {:<30} {}
         {:<30} {}
         {:<30} {}
@@ -107,6 +135,12 @@ class TimesToday:
         {:<30} {}
         {:<30} {}\
         """).format(
+
+                "Open time:                    ", self.earliest_open_local,
+                "Close time:                   ", self.latest_close_local,
+                "Datetime now:                 ", utc_to_local(utc_now()).replace(microsecond = 0),
+
+
                 "Today utc:", self.today,
                 "Datetime now utc:", utc_now().replace(microsecond = 0),
                 "Datetime now local:", utc_to_local(utc_now()).replace(microsecond = 0),
@@ -128,6 +162,8 @@ class TimesToday:
                 )
         # The above spacing for times is to bolden the open/close
         # This all comes as html, spacing for formatting, quick and dirty fix
+        # EDIT: the above is quickly hack-fixed to make the html like I want.
+        # A proper longer term fix is possible and cleaner.
 
 def get_sunrise_sunset_as_times():
     # TODO: remove this version

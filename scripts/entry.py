@@ -15,6 +15,7 @@ from donetimer import DoneTimer
 # from sunset_sunrise import get_sunrise_sunset_as_times
 import sunset_sunrise
 from json_socket import JsonSocket
+import weather
 
 import utils
 utils.setup_gpio()
@@ -39,7 +40,7 @@ def main(argv):
     near_door = Door("near",
             input_bottom = InputPin(10), input_top = InputPin(11),
             output_open = OutputPin(12), output_close = OutputPin(13))
-    camera = Camera(OutputPin(15), timeout_sec = 99999)
+    camera = Camera(OutputPin(15), timeout_sec = 99999999)
     camera.on()
 
     logger = get_console_and_file_logger("/home/pi/temperature.log")
@@ -57,6 +58,11 @@ def main(argv):
                 earliest_open_hour = 4, earliest_open_minute = 0,
                 latest_close_hour = 22, latest_close_minute = 55,
                 )
+        api_key = weather.read_api_key_from_file("weatherstack_api_key")
+        temperature_celsius = weather.download_temperature_now_from_weatherstack(
+                api_key)
+        door_opening_time_seconds = weather.calculate_door_open_time(
+                temperature_celsius)
         # Download new sunrise/sunset times on switch on or on day change
         # heater = Heater(1.0, 3.0, pin = OutputPin(40),
         #         thermometer = Thermometer())
@@ -78,6 +84,14 @@ def main(argv):
             if times_today.next_day_utc():
                 logger.info("\nNew day (utc)")
                 logger.info(str(times_today))
+                temperature_celsius = weather.download_temperature_now_from_weatherstack(
+                        api_key)
+                logger.info("Temperature recorded as: "
+                        + str(temperature_celsius))
+                door_opening_time_seconds = weather.calculate_door_open_time(
+                        temperature_celsius)
+                print("Door opening time calculated as:" +
+                        str(door_opening_time_seconds))
 
             # if heater.poll():
             #     logger.info("Heater now " + bool_to_str(heater.state()) +
@@ -92,12 +106,23 @@ def main(argv):
             # if is_now_in_time_period(datetime.time(7, 0), datetime.time(7, 5)):
             # TODO; changed this for now so it doesn't open so early
             # Think of elegant solution for this for summer/winter split
-            if times_today.now_in_period_minutes_after_earliest_open(0, 5):
+            if times_today.now_in_period_seconds_after_earliest_open(
+                    0, door_opening_time_seconds):
                 logger.info("Opening door:" + str(wall_door))
                 wall_door.open()
-            if times_today.now_in_period_minutes_after_earliest_open(5, 10):
+            elif times_today.now_in_period_seconds_after_earliest_open(
+                    door_opening_time_seconds, 2 * door_opening_time_seconds):
+                logger.info("Stopping (opened):" + str(wall_door))
+                wall_door.stop()
+
+            if times_today.now_in_period_seconds_after_earliest_open(
+                    2 * door_opening_time_seconds, 3 * door_opening_time_seconds):
                 logger.info("Opening door:" + str(near_door))
                 near_door.open()
+            elif times_today.now_in_period_seconds_after_earliest_open(
+                    3 * door_opening_time_seconds, 4 * door_opening_time_seconds):
+                logger.info("Stopping (opened):" + str(near_door))
+                near_door.stop()
 
             # With door actuators sharing circuitry with food ones only close
             # or open one door at a time
@@ -120,7 +145,7 @@ def main(argv):
 
             # Setting this timer high is an easy way to stall the loop when
             # the website is not being used
-            json_in = json_socket.read(timeout = 30)
+            json_in = json_socket.read(timeout = 5)
             if json_in is not None:
                 reply = json_response(json_in, doors = doors,
                         door_actions = door_actions,
