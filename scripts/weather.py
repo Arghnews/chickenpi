@@ -24,13 +24,20 @@ def download_temperature_now_from_weatherstack(weatherstack_api_key):
         "access_key": weatherstack_api_key,
     }
 
+    assert(weatherstack_api_key != "".join(["x"] * 26))
     result = requests.get("http://api.weatherstack.com/current", params)
-    result.raise_for_status()
-    json_result = result.json()
-    # json_result = json.loads(result)
-    # return json_result["current"]["temperature"]
-    # Feelslike presumably includes wind chill so cooler than outside
-    return json_result["current"]["temperature"]
+    try:
+        result.raise_for_status()
+        json_result = result.json()
+        # json_result = json.loads(result)
+        # return json_result["current"]["temperature"]
+        # Feelslike presumably includes wind chill so cooler than outside
+        #print(json_result)
+        #print(json_result["current"])
+        return json_result["current"]["temperature"]
+    except:
+        print("Made request to weatherstack api, got response: " + str(result))
+        raise
 
 # print(download_temperature_now_from_weatherstack())
 # print(type(download_temperature_now_from_weatherstack()))

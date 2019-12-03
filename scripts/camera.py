@@ -4,8 +4,24 @@ import sys
 from donetimer import DoneTimer
 from pins import OutputPin
 
+class SimpleCamera:
+    def __init__(self, pin, *, start_switched_on):
+        assert type(pin) is OutputPin
+        self._pin = pin
+        if start_switched_on:
+            self.on()
+        else:
+            self.off()
+    def on(self):
+        self._pin.set(True)
+    def off(self):
+        self._pin.set(False)
+    def __str__(self):
+        state = "on" if self._pin.state() else "off"
+        return "Camera using pin " + str(self._pin) + " is " + state
+
 class Camera:
-    def __init__(self, pin, timeout_sec = 900):
+    def __init__(self, pin, timeout_sec = None):
         assert type(pin) is OutputPin
         self._pin = pin
         self._default_timeout = timeout_sec

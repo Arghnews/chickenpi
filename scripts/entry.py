@@ -2,20 +2,20 @@
 
 import datetime
 import json
-import time
 import sys
+import time
 
-from pins import InputPin, OutputPin
-from door import Door
-from camera import Camera
-# from heater import Heater
-from thermometer import Thermometer
-from my_logger import get_console_and_file_logger
-from donetimer import DoneTimer
-# from sunset_sunrise import get_sunrise_sunset_as_times
+import camera
+import datetime
+import donetimer
+import door
+import heater
+import json_socket
+import my_logger
+import pins
 import sunset_sunrise
-from json_socket import JsonSocket
 import weather
+# from thermometer import Thermometer
 
 import utils
 utils.setup_gpio()
@@ -34,21 +34,21 @@ import RPi.GPIO as GPIO
 
 def main(argv):
 
-    wall_door = Door("wall",
-            input_bottom = InputPin(3), input_top = InputPin(5),
-            output_open = OutputPin(37), output_close = OutputPin(8))
-    near_door = Door("near",
-            input_bottom = InputPin(10), input_top = InputPin(11),
-            output_open = OutputPin(12), output_close = OutputPin(13))
-    camera = Camera(OutputPin(15), timeout_sec = 99999999)
-    camera.on()
+    wall_door = door.Door("wall",
+            input_bottom = pins.InputPin(3), input_top = pins.InputPin(5),
+            output_open = pins.OutputPin(37), output_close = pins.OutputPin(8))
+    near_door = door.Door("near",
+            input_bottom = pins.InputPin(10), input_top = pins.InputPin(11),
+            output_open = pins.OutputPin(12), output_close = pins.OutputPin(13))
+    camera = pins.OutputPin(15, initial = True)
+    heater = pins.OutputPin(40, initial = False)
 
-    logger = get_console_and_file_logger("/home/pi/temperature.log")
+    logger = my_logger.get_console_and_file_logger("/home/pi/temperature.log")
 
     logger.info("Started")
 
     logger.info("Starting jsonsocket")
-    json_socket = JsonSocket(2520)
+    json_sock = json_socket.JsonSocket(2520)
     logger.info("jsonsocket started successfully")
 
     #TESTING THIS
@@ -61,16 +61,21 @@ def main(argv):
         api_key = weather.read_api_key_from_file("weatherstack_api_key")
         temperature_celsius = weather.download_temperature_now_from_weatherstack(
                 api_key)
+        heater_on_threshold_temperature = 4
         door_opening_time_seconds = weather.calculate_door_open_time(
                 temperature_celsius)
         # Download new sunrise/sunset times on switch on or on day change
-        # heater = Heater(1.0, 3.0, pin = OutputPin(40),
+        # heater = heater.Heater(1.0, 3.0, pin = pins.OutputPin(40),
         #         thermometer = Thermometer())
-        record_temp_timer = DoneTimer(300)
+        record_temp_timer = donetimer.DoneTimer(300)
         bool_to_str = lambda x: "on" if x else "off"
-        last_date = None
         doors = [wall_door, near_door]
         door_actions = ["open", "stop", "close", "check_position"]
+        heater_active = False
+        # Bit messy this one. Should make idempotent on/off pin wrapper really
+        # that when on is called twice on a pin doesn't put the call through
+        # the second time.
+        heater_last_state = None
 
 #         for door in doors:
 #             door.close()
@@ -90,9 +95,26 @@ def main(argv):
                         + str(temperature_celsius))
                 door_opening_time_seconds = weather.calculate_door_open_time(
                         temperature_celsius)
-                print("Door opening time calculated as:" +
+                logger.info("Door opening time calculated as:" +
                         str(door_opening_time_seconds))
+                heater_active = temperature_celsius <= heater_on_threshold_temperature
+                logger.info("Heater threshold temperature: "
+                    + str(heater_on_threshold_temperature))
+                if heater_active:
+                    logger.info("Enabling heater based on temperature")
 
+            # If temperature when recorded was below threshold
+            # Simple way to switch on for 5 mins then off for 5 mins
+            if heater_active and bool((datetime.datetime.now().minute % 10) // 5):
+                if not heater_last_state:
+                    logger.debug("Switching heater on")
+                    heater.on()
+                    heater_last_state = True
+            else:
+                if heater_last_state:
+                    logger.debug("Switching heater off")
+                    heater.off()
+                    heater_last_state = False
             # if heater.poll():
             #     logger.info("Heater now " + bool_to_str(heater.state()) +
             #             " as temperature now " +
@@ -145,23 +167,23 @@ def main(argv):
 
             # Setting this timer high is an easy way to stall the loop when
             # the website is not being used
-            json_in = json_socket.read(timeout = 5)
+            json_in = json_sock.read(timeout = 5)
             if json_in is not None:
                 reply = json_response(json_in, doors = doors,
                         door_actions = door_actions,
                         times_today = times_today)
-                logger.info("json_socket read in \"" + str(json_in) + "\"")
+                logger.info("json_sock read in \"" + str(json_in) + "\"")
                 if reply is not None:
                     logger.info("Replying with " + str(reply))
-                    json_socket.write(reply)
-                    print("Done writing out reply")
+                    json_sock.write(reply)
+                    logger.info("Done writing out reply")
 
             time.sleep(0.1)
     except Exception as e:
         logger.exception(e)
         raise
     finally:
-        json_socket.close()
+        json_sock.close()
 
 def json_response(json_in, **kwargs):
     if json_in is None:
